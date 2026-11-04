@@ -6,7 +6,7 @@ const nodemailer = require('nodemailer');
 const app = express();
 app.use(express.json());
 
-// Подключение к Supabase (твоя БД на "С")
+// Подключение к Supabase
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 // Настройка почты для отправки кодов активации мессенджера Слэш
@@ -68,7 +68,7 @@ app.post('/auth/send-code', async (req, res) => {
     });
 });
 
-// Шаг 2: Проверка кода и создание профиля (Выдаем 1000 звезд бесплатно)
+// Шаг 2: Проверка кода и создание профиля
 app.post('/auth/register', async (req, res) => {
     const { email, code } = req.body;
     const record = verificationCodes.get(email);
@@ -89,7 +89,7 @@ app.post('/auth/register', async (req, res) => {
     res.json({ message: "Регистрация в Слэш завершена успешно!", user: data });
 });
 
-// Чекер для проверки существования данных на лету (почта, юзернейм, телефон)
+// Чекер для проверки существования данных на лету
 app.post('/utils/check-exists', async (req, res) => {
     const { field, value } = req.body;
     if (!['email', 'username', 'phone'].includes(field)) {
@@ -103,7 +103,6 @@ app.post('/utils/check-exists', async (req, res) => {
 // 2. ОБЩЕНИЕ, ПОИСК И УДАЛЯЕМЫЙ ИИ
 // ==========================================
 
-// Глобальный поиск людей по Username в мессенджере Слэш
 app.get('/users/search', async (req, res) => {
     const { username } = req.query;
     if (!username) return res.status(400).json({ error: "Введите username для поиска" });
@@ -118,26 +117,23 @@ app.get('/users/search', async (req, res) => {
     res.json({ users: data });
 });
 
-// Отправка сообщения человеку или ИИ-ассистенту
 app.post('/messages/send', async (req, res) => {
     const { sender_id, receiver_id, text, is_to_ai } = req.body;
 
     if (!text || text.trim() === "") return res.status(400).json({ error: "Текст сообщения не может быть пустым" });
 
-    // Логика общения со встроенным ИИ
     if (is_to_ai) {
         const { data: user } = await supabase.from('users').select('ai_enabled').eq('id', sender_id).single();
         if (user && !user.ai_enabled) {
-            return res.status(400).json({ error: "Вы удалили (отключили) ИИ-ассистента в настройках мессенджера Слэш!" });
+            return res.status(400).json({ error: "Вы удалили ИИ-ассистента!" });
         }
 
-        // Сохраняем сообщение юзера (у ИИ условный ID = 0)
         await supabase.from('messages').insert([{ sender_id, receiver_id: 0, text_content: text }]);
 
         const aiResponses = [
             "Привет! Я встроенный ИИ мессенджера Слэш. Чем могу помочь?",
             "Отличный вопрос! Попробуй накопить больше звезд через нашего бота.",
-            "Я работаю прямо внутри Слэш! Меня можно удалить (отключить) в настройках профиля, если я тебе надоем.",
+            "Я работаю прямо внутри Слэш! Меня можно удалить в настройках профиля.",
             "Звёзды на твоем аккаунте можно потратить на Слэш Premium или покупку уникального номера +888!"
         ];
         const randomAnswer = aiResponses[Math.floor(Math.random() * aiResponses.length)];
@@ -151,7 +147,6 @@ app.post('/messages/send', async (req, res) => {
         return res.json({ message: "Ответ от ИИ получен", data: aiMessage });
     }
 
-    // Обычная отправка сообщения от человека к человеку
     const { data, error } = await supabase
         .from('messages')
         .insert([{ sender_id, receiver_id, text_content: text }])
@@ -162,9 +157,8 @@ app.post('/messages/send', async (req, res) => {
     res.json({ message: "Сообщение доставлено", data });
 });
 
-// Удаление (отключение) или включение ИИ для конкретного пользователя
 app.post('/users/toggle-ai', async (req, res) => {
-    const { user_id, enable_ai } = req.body; // передаем true (включить) или false (удалить ИИ)
+    const { user_id, enable_ai } = req.body;
 
     const { data, error } = await supabase
         .from('users')
@@ -177,7 +171,6 @@ app.post('/users/toggle-ai', async (req, res) => {
     res.json({ message: enable_ai ? "ИИ успешно добавлен обратно!" : "ИИ успешно удален из мессенджера!", user: data });
 });
 
-// Получение истории чата
 app.get('/messages/history', async (req, res) => {
     const { user_id, chat_with_id } = req.query;
     if (!user_id || !chat_with_id) return res.status(400).json({ error: "Необходимы оба ID участников чата" });
@@ -196,7 +189,6 @@ app.get('/messages/history', async (req, res) => {
 // 3. БОТ СЛЭШ: НАКРУТКА ЗВЕЗД, ПОКУПКА НОМЕРОВ И ЮЗЕРНЕЙМОВ
 // ==========================================
 
-// Фейк-донат звезд через бота (Бесплатное зачисление на аккаунт Слэш)
 app.post('/bot/buy-stars', async (req, res) => {
     const { user_id, amount } = req.body;
     const { data: user } = await supabase.from('users').select('stars_balance').eq('id', user_id).single();
@@ -210,17 +202,16 @@ app.post('/bot/buy-stars', async (req, res) => {
         .single();
 
     if (error) return res.status(500).json({ error: error.message });
-    res.json({ message: `Успешно начислено ${amount} звезд! Деньги не списаны.`, balance: updatedUser.stars_balance });
+    res.json({ message: `Успешно начислено ${amount} звезд!`, balance: updatedUser.stars_balance });
 });
 
-// Покупка анонимного номера +888 за Звезды через бота без повторов
 app.post('/bot/buy-number', async (req, res) => {
     const { user_id } = req.body;
     const NUMBER_PRICE = 999;
 
     const { data: user } = await supabase.from('users').select('stars_balance').eq('id', user_id).single();
     if (!user || user.stars_balance < NUMBER_PRICE) {
-        return res.status(400).json({ error: "Недостаточно звезд для покупки анонимного номера +888!" });
+        return res.status(400).json({ error: "Недостаточно звезд!" });
     }
 
     let isUnique = false;
@@ -239,37 +230,38 @@ app.post('/bot/buy-number', async (req, res) => {
     res.json({ message: "Вы успешно купили анонимный номер +888 в Слэш!", phone: generatedNumber });
 });
 
-// Покупка красивого Премиум-юзернейма за Звезды через бота
 app.post('/bot/buy-username', async (req, res) => {
     const { user_id, desired_username } = req.body;
     const USERNAME_PRICE = 1500;
 
     const usernameRegex = /^[a-zA-Z0-9_]{3,15}$/;
     if (!usernameRegex.test(desired_username)) {
-        return res.status(400).json({ error: "Юзернейм должен быть от 3 до 15 символов (только латиница, цифры и '_')" });
+        return res.status(400).json({ error: "Юзернейм должен быть от 3 до 15 символов!" });
     }
 
-const { data: userCheck } = await supabase.from('users').select('id').eq('username', desired_username).maybeSingle();
-const { data: reserveCheck } = await supabase.from('purchased_usernames').select('id').eq('username', desired_username).maybeSingle();
-if (userCheck || reserveCheck) {
-return res.status(400).json({ error: "Этот премиальный юзернейм уже занят или выкуплен!" });
-}
-const { data: user } = await supabase.from('users').select('stars_balance').eq('id', user_id).single();
-if (!user || user.stars_balance < USERNAME_PRICE) {
-return res.status(400).json({ error: "Недостаточно звезд для покупки премиум-юзернейма!" });
-}
-await supabase.from('users').update({ stars_balance: user.stars_balance - USERNAME_PRICE, username: desired_username }).eq('id', user_id);
-await supabase.from('purchased_usernames').insert([{ username: desired_username, owner_id: user_id }]);
-res.json({ message: `Вы успешно приобрели премиум-юзернейм: @${desired_username}!`, new_username: desired_username });
+    const { data: userCheck } = await supabase.from('users').select('id').eq('username', desired_username).maybeSingle();
+    const { data: reserveCheck } = await supabase.from('purchased_usernames').select('id').eq('username', desired_username).maybeSingle();
+
+    if (userCheck || reserveCheck) {
+        return res.status(400).json({ error: "Этот премиальный юзернейм уже занят!" });
+    }
+
+    const { data: user } = await supabase.from('users').select('stars_balance').eq('id', user_id).single();
+    if (!user || user.stars_balance < USERNAME_PRICE) {
+        return res.status(400).json({ error: "Недостаточно звезд!" });
+    }
+
+    await supabase.from('users').update({ stars_balance: user.stars_balance - USERNAME_PRICE, username: desired_username }).eq('id', user_id);
+    await supabase.from('purchased_usernames').insert([{ username: desired_username, owner_id: user_id }]);
+res.json({ message: Вы успешно приобрели премиум-юзернейм: @${desired_username}!, new_username: desired_username });
 });
 // ==========================================
 // 4. ПОДАРКИ И ПОКУПКА СЛЭШ PREMIUM ЗА ЗВЕЗДЫ
 // ==========================================
-// Отправка подарков Слэш с реальной стоимостью звезд
 app.post('/gifts/send', async (req, res) => {
 const { sender_id, receiver_id, gift_name } = req.body;
 const price = TELEGRAM_GIFTS[gift_name];
-if (!price) return res.status(400).json({ error: "Такого подарка не существует в Слэш!" });
+if (!price) return res.status(400).json({ error: "Такого подарка не существует!" });
 const { data: sender } = await supabase.from('users').select('stars_balance').eq('id', sender_id).single();
 if (!sender || sender.stars_balance < price) {
 return res.status(400).json({ error: "У вас недостаточно звезд!" });
@@ -278,14 +270,13 @@ await supabase.from('users').update({ stars_balance: sender.stars_balance - pric
 await supabase.from('user_gifts').insert([{ gift_name, price_stars: price, sender_id, receiver_id }]);
 res.json({ message: Подарок "${gift_name}" успешно отправлен! });
 });
-// Покупка подписки Слэш Premium за звезды
 app.post('/premium/buy', async (req, res) => {
 const { user_id } = req.body;
 const PREMIUM_PRICE = 500;
 const { data: user } = await supabase.from('users').select('stars_balance, is_premium').eq('id', user_id).single();
 if (!user) return res.status(404).json({ error: "Пользователь не найден" });
 if (user.is_premium) return res.status(400).json({ error: "Слэш Premium статус уже активен!" });
-if (user.stars_balance < PREMIUM_PRICE) return res.status(400).json({ error: "Недостаточно звезд для Слэш Premium!" });
+if (user.stars_balance < PREMIUM_PRICE) return res.status(400).json({ error: "Недостаточно звезд!" });
 const { data: updatedUser } = await supabase
 .from('users')
 .update({ stars_balance: user.stars_balance - PREMIUM_PRICE, is_premium: true })
