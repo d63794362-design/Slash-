@@ -260,7 +260,7 @@ return res.status(400).json({ error: "Недостаточно звезд для
 }
 await supabase.from('users').update({ stars_balance: user.stars_balance - USERNAME_PRICE, username: desired_username }).eq('id', user_id);
 await supabase.from('purchased_usernames').insert([{ username: desired_username, owner_id: user_id }]);
-res.json({ message: Вы успешно приобрели премиум-юзернейм: @${desired_username}!, new_username: desired_username });
+res.json({ message: `Вы успешно приобрели премиум-юзернейм: @${desired_username}!`, new_username: desired_username });
 });
 // ==========================================
 // 4. ПОДАРКИ И ПОКУПКА СЛЭШ PREMIUM ЗА ЗВЕЗДЫ
