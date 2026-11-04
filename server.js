@@ -140,7 +140,7 @@ app.get('/messages/history', async (req, res) => {
     const { data, error } = await supabase
         .from('messages')
         .select('*')
-        .or(`and(sender_id.eq.${user_id},receiver_id.eq.${chat_with_id}),and(sender_id.eq.${chat_with_id},receiver_id.eq.${user_id})`)
+        .or(`and(sender_id.eq.${user_id},receiver_id.eq.${chat_with_id}),and(chat_with_id.eq.${user_id},sender_id.eq.${chat_with_id})`)
         .order('created_at', { ascending: true });
     if (error) return res.status(500).json({ error: error.message });
     res.json({ chat_history: data });
@@ -211,7 +211,7 @@ app.post('/gifts/send', async (req, res) => {
     }
     await supabase.from('users').update({ stars_balance: sender.stars_balance - price }).eq('id', sender_id);
     await supabase.from('user_gifts').insert([{ gift_name, price_stars: price, sender_id, receiver_id }]);
-    res.json({ message: Подарок "${gift_name}" успешно отправлен! });
+res.json({ message: Подарок ${gift_name} успешно отправлен! });
 });
 app.post('/premium/buy', async (req, res) => {
 const { user_id } = req.body;
